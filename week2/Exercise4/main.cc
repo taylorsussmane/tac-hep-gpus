@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "t1.h"
+#include "hh/t1.h"
 
 #include <TMath.h>
 #include <TFile.h>
