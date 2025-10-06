@@ -92,11 +92,16 @@ double Particle::sintheta(){
         return std::sin(theta);
 }
 
-void Particle::p4(double pT, double eta, double phi, double energy){
+void Particle::p4(double pT, double Eta, double Phi, double energy){
+        pt = pT;
+        eta = Eta;
+        phi = Phi;
+        E = energy;
+    
         p[0] = energy;
-        p[1] = pT*std::cos(phi);
-        p[2] = pT*std::sin(phi);
-        p[3] = pT*std::sinh(eta);
+        p[1] = pT*std::cos(Phi);
+        p[2] = pT*std::sin(Phi);
+        p[3] = pT*std::sinh(Eta);
 }
 
 void Particle::setMass(double mass){
