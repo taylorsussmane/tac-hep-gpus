@@ -121,20 +121,20 @@ void Particle::print(){
 }
 
 void Lepton::print(){
+        std::cout<< "--LEPTON--"<<std::endl;
         std::cout<< "Charge = " << charge << std::endl;
-        std::cout << std::endl;
         std::cout << "(" << p[0] <<",\t" << p[1]
                 <<",\t"<< p[2] <<",\t"<< p[3] << ")"
-                << "  " <<  sintheta() << std::endl;
+                << "  " <<  sintheta() << std::endl<<std::endl;
 
 }
 
 void Jet::print(){
+        std::cout<< "--JET--"<<std::endl;
         std::cout << "Hadron flavor = " << hadronFlavor << std::endl;
-        std::cout << std::endl;
         std::cout << "(" << p[0] <<",\t" << p[1]
                 <<",\t"<< p[2] <<",\t"<< p[3] << ")"
-                << "  " <<  sintheta() << std::endl;
+                << "  " <<  sintheta() << std::endl<<std::endl;
 
 }
 
