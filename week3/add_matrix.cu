@@ -11,8 +11,6 @@ __global__ void add_matrix(float *A, float *B, float *C, int x_dim, int y_dim)
     int idx = threadIdx.x + blockDim.x*blockIdx.x; 
     int idy = threadIdx.y + blockDim.y*blockIdx.y;
     // Add the two matrices - make sure you are not out of range
-    printf("%d\n", idx);
-    printf("%d\n",idy);
     if ((idx < x_dim) && (idy < y_dim))
         C[y_dim*idx+idy] = A[y_dim*idx+idy] + B[y_dim*idx+idy];
 }
@@ -46,7 +44,7 @@ int main(){
     // dim3 is a built in CUDA type that allows you to define the block 
     // size and grid size in more than 1 dimension
     // Syntax : dim3(Nx,Ny,Nz)
-    dim3 blockSize(DSIZE_X, DSIZE_Y); 
+    dim3 blockSize(32, 32); 
     dim3 gridSize(1, 1); 
     
     add_matrix<<<gridSize, blockSize>>>(d_A, d_B, d_C, DSIZE_X, DSIZE_Y);
