@@ -20,27 +20,34 @@ const float B_val = 2.0f;
 
 // Square matrix multiplication on CPU : C = A * B
 void matrix_mul_cpu(const float *A, const float *B, float *C, int size) {
-  //FIXME:
-  // 
+	for (int i = 0; i<size; i++){
+		for (int j = 0; j<size; j++){
+			float tempSum = 0;
+
+			for (int k = 0; k<size; k++){
+				tempSum += A[i*size+k]+B[k*size+j];
+			}
+
+			C[i*size+j] = tempSum;
+		}
+	} 
 }
 
 // Square matrix multiplication on GPU : C = A * B
 __global__ void matrix_mul_gpu(const float *A, const float *B, float *C, int size) {
 
-    //FIXME:
     // create thread x index
     // create thread y index
-    idx = ;
-    idy = ;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int idy = blockIdx.y * blockDim.y + threadIdx.y;
     // Make sure we are not out of range
-    if ((idx < FIXME) && (idy < FIXME)) {
-        float temp = 0;
+    if ((idx < size) && (idy < size)) {
+        float tempSum = 0;
         for (int i = 0; i < size; i++){
-            //FIXME : Add dot product of row and column
+	    tempSum += A[idy*size + i]*B[i*size + idx];
         }
-        C[idy*size+idx] = temp;                    
+        C[idy*size+idx] = tempSum;                    
     }
-
 }
 
 int main() {
@@ -74,13 +81,17 @@ int main() {
 
     // Allocate device memory and copy input data from host to device
     cudaMalloc(&d_A, DSIZE*DSIZE*sizeof(float));
-    //FIXME:Add all other allocations and copies from host to device
+	cudaMalloc(&d_B, DSIZE*DSIZE*sizeof(float));
+	cudaMalloc(&d_C, DSIZE*DSIZE*sizeof(float));
+
+	cudaMemcpy(d_A, h_A, DSIZE*DSIZE*sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_B, h_B, DSIZE*DSIZE*sizeof(float), cudaMemcpyHostToDevice);
   
 
     // Launch kernel
     // Specify the block and grid dimentions 
-    dim3 block(,);  //FIXME
-    dim3 grid(,); //FIXME
+    dim3 block(DSIZE, DSIZE);
+    dim3 grid(1, 1);
     matrix_mul_gpu<<<grid, block>>>(d_A, d_B, d_C, DSIZE);
 
     // Copy results back to host
@@ -89,18 +100,24 @@ int main() {
     // GPU timing
     t2 = clock();
     t2sum = ((double)(t2-t1))/CLOCKS_PER_SEC;
-    printf ("Done. Compute took %f seconds\n", t2sum);
+    printf ("Done. GPU compute took %f seconds\n", t2sum);
 
-    // FIXME
     // Excecute and time the cpu matrix multiplication function
+    matrix_mul_cpu(h_A, h_B, h_C, DSIZE);
 
     // CPU timing
     t3 = clock();
     t3sum = ((double)(t3-t2))/CLOCKS_PER_SEC;
-    printf ("Done. Compute took %f seconds\n", t3sum);
+    printf ("Done. CPU compute took %f seconds\n", t3sum);
 
-    // FIXME
-    // Free memory 
+    // Free memory
+    free(h_A);
+    free(h_B);
+    free(h_C);
+
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C); 
     
     return 0;
 
