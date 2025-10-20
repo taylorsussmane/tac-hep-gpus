@@ -65,9 +65,8 @@ int main() {
 	cudaCheckErrors();
 
 	// Define block/grid dimentions and launch kernel
-	int blockSize = 32;
-	int gridSize = DSIZE/blockSize;
-	dot_product<<<gridSize, blockSize>>>(d_A, d_B, d_C, DSIZE);
+	int gridSize = DSIZE/BLOCK_SIZE;
+	dot_product<<<gridSize, BLOCK_SIZE>>>(d_A, d_B, d_C, DSIZE);
 
 	// Copy results back to host
         cudaMemcpy(h_C, d_C, sizeof(int), cudaMemcpyDeviceToHost);
