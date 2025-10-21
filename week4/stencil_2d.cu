@@ -35,8 +35,13 @@ __global__ void stencil_2d(int *in, int *out) {
 	// Apply the stencil
 	int result = 0;
 	for (int offset = -RADIUS; offset <= RADIUS; offset++){
-		result += temp[lindex_x+offset][lindex_y+offset];
+		result += temp[lindex_x+offset][lindex_y];
+		result += temp[lindex_x][lindex_y+offset];
 	}
+
+	// In the loop, this index is double counted, so this fixes that.
+	// There's probably a more eloquent way of doing this, but it works. 
+	result -= temp[lindex_x][lindex_y];
 
 	__syncthreads();
 	// Store the result
