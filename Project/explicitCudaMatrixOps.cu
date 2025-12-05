@@ -2,7 +2,7 @@
 #include <algorithm>
 using namespace std;
 
-#define RADIUS 2
+#define RADIUS 3
 #define BLOCK_SIZE 32
 #define N 512
 const int DSIZE = N+2*RADIUS;
