@@ -43,7 +43,7 @@ __global__ void stencil_2d(int *in, int *out) {
 	// There's probably a more eloquent way of doing this, but it works. 
 	result -= temp[lindex_x][lindex_y];
 
-	__syncthreads();
+	//__syncthreads();
 	// Store the result
 	out[gindex_y+size*gindex_x] = result;
 }
