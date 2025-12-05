@@ -2,13 +2,10 @@
 #include <algorithm>
 using namespace std;
 
-#define N 512
 #define RADIUS 2
 #define BLOCK_SIZE 32
+#define N 512
 const int DSIZE = N+2*RADIUS;
-//#define N (DSIZE-2*RADIUS)
-//#define A_val 1
-//#define B_val 2
 const int A_val = 1;
 const int B_val = 2;
 
@@ -79,9 +76,47 @@ int stencil_error_check(const int *in, const int *out, const int val){
 				}
 			}
 		}
-	printf("Success!\n");
+	printf("Stencil Success!\n");
 	return 0;
 }
+
+//-----------------MATRIX MULT VALUE CHECK-----------------
+int mult_error_check(const int *A, const int *B, const int *C){
+	int A_stenc_val = A_val + A_val*4*RADIUS;
+	int B_stenc_val = B_val + B_val*4*RADIUS;
+	int DSIZE_mid = DSIZE - 2*RADIUS;
+	for (int i = 0; i < DSIZE; ++i) {
+		for (int j = 0; j < DSIZE; ++j) {
+			if ((i < RADIUS || i >= N + RADIUS) && (j < RADIUS || j >= N + RADIUS)){
+				if (C[j+i*DSIZE] != A_val*B_val*DSIZE){
+					printf("1 Mismatch at index [%d,%d], was: %d, should be: %d\n", i,j, C[j+i*DSIZE], A_val*B_val*DSIZE);
+					return -1;
+				}
+			}
+			else if ((i < RADIUS || i >= N + RADIUS) && (j >= RADIUS && j < N + RADIUS)){
+				if (C[j+i*DSIZE] != A_val*B_val*2*RADIUS + A_val*B_stenc_val*DSIZE_mid){
+					printf("2 Mismatch at index [%d,%d], was: %d, should be: %d\n", i,j, C[j+i*DSIZE], A_val*B_val*2*RADIUS + A_val*B_stenc_val*DSIZE_mid);
+					return -1;
+				}
+			}
+			else if ((i >= RADIUS && i < N + RADIUS) && (j >= RADIUS && j < N + RADIUS)){
+				if (C[j+i*DSIZE] != A_val*B_val*2*RADIUS + A_stenc_val*B_stenc_val*DSIZE_mid){
+					printf("3 Mismatch at index [%d,%d], was: %d, should be: %d\n", i,j, C[j+i*DSIZE], A_val*B_val*2*RADIUS + A_stenc_val*B_stenc_val*DSIZE_mid);
+					return -1;
+				}
+			}
+			else{
+				if (C[j+i*DSIZE] != A_val*B_val*2*RADIUS + A_stenc_val*B_val*DSIZE_mid){
+					printf("4 Mismatch at index [%d,%d], was: %d, should be: %d\n", i,j, C[j+i*DSIZE], A_val*B_val*2*RADIUS + A_stenc_val*B_val*DSIZE_mid);
+					return -1;
+				}
+			}
+		}
+	}
+	printf("Matrix Multiplication Success!\n");
+	return 0;
+}
+
 
 
 void fill_ints(int *x, int n, int val) {
@@ -132,19 +167,19 @@ int main(void){
 	cudaCheckErrors("Error when copying to device.");
 
 	// create grid and block for stencil kernel
-	int s_gridSize = (N + BLOCK_SIZE-1)/BLOCK_SIZE;
-	dim3 s_grid(s_gridSize, s_gridSize);
-	dim3 s_block(BLOCK_SIZE, BLOCK_SIZE);
+	int gridSize = (N + BLOCK_SIZE-1)/BLOCK_SIZE;
+	dim3 grid(gridSize, gridSize);
+	dim3 block(BLOCK_SIZE, BLOCK_SIZE);
 	
 	// launch stencil kernels on a and b and then launch matrix multiplication 
-	stencil_2d<<<s_grid,s_block>>>(d_a + RADIUS*(N + 2*RADIUS) + RADIUS , d_stenciled_a + RADIUS*(N + 2*RADIUS) + RADIUS);
-	stencil_2d<<<s_grid,s_block>>>(d_b + RADIUS*(N + 2*RADIUS) + RADIUS , d_stenciled_b + RADIUS*(N + 2*RADIUS) + RADIUS);
+	stencil_2d<<<grid,block>>>(d_a + RADIUS*(N + 2*RADIUS) + RADIUS , d_stenciled_a + RADIUS*(N + 2*RADIUS) + RADIUS);
+	stencil_2d<<<grid,block>>>(d_b + RADIUS*(N + 2*RADIUS) + RADIUS , d_stenciled_b + RADIUS*(N + 2*RADIUS) + RADIUS);
 	cudaCheckErrors("Error when running stencil kernels.");
 
-	//create grid and block for matrix kernel
-	//dim3 m_block(DSIZE, DSIZE);
-	//dim3 m_grid(1, 1);
-	matrix_mult<<<s_grid,s_block>>>(d_stenciled_a, d_stenciled_b, d_c, DSIZE);
+	int m_gridSize = (DSIZE+BLOCK_SIZE-1)/BLOCK_SIZE;
+	dim3 m_grid(m_gridSize, m_gridSize);
+	dim3 m_block(BLOCK_SIZE, BLOCK_SIZE);
+	matrix_mult<<<m_grid,m_block>>>(d_stenciled_a, d_stenciled_b, d_c, DSIZE);
 	cudaCheckErrors("Error when running multiplication kernel.");
 	
 	// copy back to host
@@ -158,6 +193,7 @@ int main(void){
 	// check results
 	stencil_error_check(h_a, h_stenciled_a, A_val);
 	stencil_error_check(h_b, h_stenciled_b, B_val);
+	mult_error_check(h_stenciled_a, h_stenciled_b, h_c);
 
 	// free memory
 	free(h_a);
