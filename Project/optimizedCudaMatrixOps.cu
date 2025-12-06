@@ -41,6 +41,7 @@ __global__ void matrix_mult(const int *A, const int *B, int *C, int size) {
 		}
 		__syncthreads();
 	}
+	
 	// store result
 	if(idy < DSIZE && idx < DSIZE)
 		C[((blockIdx.y*blockDim.y+threadIdx.y)*DSIZE)+(blockIdx.x*blockDim.x)+threadIdx.x] = temp;
@@ -212,9 +213,6 @@ int main(void){
 	stencil_2d<<<grid,block,0,stream2>>>(h_b + RADIUS*(N + 2*RADIUS) + RADIUS , h_stenciled_b + RADIUS*(N + 2*RADIUS) + RADIUS);
 	cudaCheckErrors("Error when running stencil kernels.");
 	
-	// synchronize before accessing data on host
-	cudaDeviceSynchronize();
-
 	// synchronize streams
 	cudaStreamSynchronize(stream1);
 	cudaStreamSynchronize(stream2);
@@ -225,6 +223,9 @@ int main(void){
 	dim3 m_block(BLOCK_SIZE, BLOCK_SIZE);
 	matrix_mult<<<m_grid,m_block>>>(h_stenciled_a, h_stenciled_b, h_c, DSIZE);
 	cudaCheckErrors("Error when running multiplication kernel.");
+	
+	// synchronize before accessing data on host
+	cudaDeviceSynchronize();
 	
 	// check results
 	stencil_error_check(h_a, h_stenciled_a, A_val);
