@@ -11,6 +11,7 @@ const int B_val = 2;
 
 //--------------MATRIX MULTIPLICATION W/ SHARED MEM--------------
 // reference: https://github.com/kberkay/Cuda-Matrix-Multiplication/blob/master/matrix_Multiplication.cu
+// also help from this stack exchange: https://stackoverflow.com/questions/18815489/cuda-tiled-matrix-matrix-multiplication-with-shared-memory-and-matrix-size-whic
 __global__ void matrix_mult(const int *A, const int *B, int *C, int size) {
 	// put smaller tiles of matrix into shared mem
 	__shared__ int tileA[BLOCK_SIZE][BLOCK_SIZE];
@@ -41,31 +42,12 @@ __global__ void matrix_mult(const int *A, const int *B, int *C, int size) {
 		__syncthreads();
 	}
 	// store result
-	//C[idy*DSIZE+idx] = temp;
 	if(idy < DSIZE && idx < DSIZE)
 		C[((blockIdx.y*blockDim.y+threadIdx.y)*DSIZE)+(blockIdx.x*blockDim.x)+threadIdx.x] = temp;
 }
 
 
-
-
-
-/*
-    // create thread x index
-    // create thread y index
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int idy = blockIdx.y * blockDim.y + threadIdx.y;
-    // Make sure we are not out of range
-    if ((idx < size) && (idy < size)) {
-        float tempSum = 0;
-        for (int i = 0; i < size; i++){
-        tempSum += A[idy*size + i]*B[i*size + idx];
-        }
-        C[idy*size+idx] = tempSum;
-    }
-}*/
-
-//-----------------2D STENCIL-----------------
+//-----------------2D STENCIL W/ SHARED MEM-----------------
 __global__ void stencil_2d(int *in, int *out) {
 	__shared__ int temp[BLOCK_SIZE + 2 * RADIUS][BLOCK_SIZE + 2 * RADIUS];
 	int gindex_x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -238,7 +220,7 @@ int main(void){
 	cudaStreamSynchronize(stream2);
 
 	// launch matrix mult
-	int m_gridSize = (BLOCK_SIZE+DSIZE-1)/BLOCK_SIZE;//DSIZE/BLOCK_SIZE;
+	int m_gridSize = (BLOCK_SIZE+DSIZE-1)/BLOCK_SIZE;
 	dim3 m_grid(m_gridSize, m_gridSize);
 	dim3 m_block(BLOCK_SIZE, BLOCK_SIZE);
 	matrix_mult<<<m_grid,m_block>>>(h_stenciled_a, h_stenciled_b, h_c, DSIZE);
