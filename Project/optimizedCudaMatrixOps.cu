@@ -238,7 +238,7 @@ int main(void){
 	cudaStreamSynchronize(stream2);
 
 	// launch matrix mult
-	int m_gridSize = DSIZE/BLOCK_SIZE;
+	int m_gridSize = (BLOCK_SIZE+DSIZE-1)/BLOCK_SIZE;//DSIZE/BLOCK_SIZE;
 	dim3 m_grid(m_gridSize, m_gridSize);
 	dim3 m_block(BLOCK_SIZE, BLOCK_SIZE);
 	matrix_mult<<<m_grid,m_block>>>(h_stenciled_a, h_stenciled_b, h_c, DSIZE);
