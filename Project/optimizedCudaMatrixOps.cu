@@ -22,11 +22,16 @@ __global__ void matrix_mult(const int *A, const int *B, int *C, int size) {
 	int temp = 0;
 
 	// loop through tiles grid
-	for (int ntile = 0; ntile < (BLOCK_SIZE+DSIZE-1); ntile++){
-		// Make coalesced mem access
-		tileA[threadIdx.y][threadIdx.x] = A[idy*DSIZE+(ntile*BLOCK_SIZE+threadIdx.x)];
-		tileB[threadIdx.y][threadIdx.x] = B[(ntile*BLOCK_SIZE+threadIdx.y)*DSIZE+idx];
-
+	for (int ntile = 0; ntile < (BLOCK_SIZE+DSIZE-1)/BLOCK_SIZE; ntile++){
+		if (ntile*BLOCK_SIZE+ threadIdx.x < DSIZE && idy < DSIZE)
+			tileA[threadIdx.y][threadIdx.x] = A[idy*DSIZE+(ntile*BLOCK_SIZE+threadIdx.x)];
+		else
+			tileA[threadIdx.y][threadIdx.x] = 0;
+		if (ntile*BLOCK_SIZE + threadIdx.y < DSIZE && idx < DSIZE)
+			tileB[threadIdx.y][threadIdx.x] = B[(ntile*BLOCK_SIZE+threadIdx.y)*DSIZE+idx];
+		else
+			tileB[threadIdx.y][threadIdx.x] = 0;
+		
 		__syncthreads();
 
 		// do the matrix multiplication for one tile
@@ -36,7 +41,9 @@ __global__ void matrix_mult(const int *A, const int *B, int *C, int size) {
 		__syncthreads();
 	}
 	// store result
-	C[idy*DSIZE+idx] = temp;
+	//C[idy*DSIZE+idx] = temp;
+	if(idy < DSIZE && idx < DSIZE)
+		C[((blockIdx.y*blockDim.y+threadIdx.y)*DSIZE)+(blockIdx.x*blockDim.x)+threadIdx.x] = temp;
 }
 
 
