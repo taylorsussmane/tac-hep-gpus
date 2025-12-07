@@ -72,8 +72,27 @@
 	'matrix_mult' took 33.2% of time (1,995,581 ns)
 
 ## Making use of Alpaka
-- Re-write your application making use of the Alpaka portability library.
-- Describe the steps you had to follow to re-write your code.
+- Based on results of profiling the cuda code, I decided to use the standard 'matrix\_mult' function and the shared memory 'stencil\_2d' function
+- Syntax of the kernels now starts with:
+	'''
+	struct stencil_2d {
+		template <typename TAcc, typename T>
+		ALPAKA\_FN\_ACC void operator()(TAcc const& acc,  
+  						  T const\* __restrict__ in,  
+  						  T \* __restrict__ out,  
+  						 )const{  
+			auto globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
+			int threadIdxX = globalThreadIdx[0];
+			int threadIdxY = globalThreadIdx[1];
+			auto blocksize = alpaka::getWorkDiv<alpaka::Block, alpaka::Threads>(acc);
+			int blockdimX = blocksize[0];
+			int blockdimY = blocksize[1];
+			auto blockId = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc);
+			int blockIdX = blockId[0];
+			int blockIdY = blockId[1];	
+		}  
+	};
+	''' 
 
 
 ### Some things to remember :
