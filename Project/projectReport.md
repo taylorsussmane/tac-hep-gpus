@@ -1,0 +1,81 @@
+# **Final Project**
+
+## C++ and CPU profiling 
+- Compiled with 'g++ cppMatrixOps.cpp -o cppMatrixOps'
+- Vtune commands:
+	1. 'source /opt/intel/oneapi/setvars.sh'
+	2. 'vtune -collect hotspots -quiet ./cppMatrixOps'
+	3. 'vtune -report summary -result-dir r000hs -format csv -report-output summary.csv'
+	4. 'vtune -report hotspots -result-dir r000hs -format csv -report-output hotspots.csv'
+- 'matrix\_mult' command is most compute intensive, taking up 94.4% of compute time
+- 'stencil\_2d' command is 2nd most compute intensive, taking up 5.6% of compute time
+- Successful output:
+	'''
+	Stencil Success!
+	Matrix Multiplication Success!
+	'''
+
+## Porting to CUDA
+- First, 'ssh g38nXX # XX:01-16'
+#EXPLICIT MEMORY COPIES
+- Compiled with 'nvcc explicitCudaMatrixOps.cu -o explicitCudaMatrixOps'
+- Run with './explicitCudaMatrixOps'
+- Successful output: 
+	'''
+	Stencil Success!
+	Stencil Success!
+	Matrix Multiplication Success!
+	'''
+- Run nsys profiler 'nsys profile --stats=true ./explicitCudaMatrixOps'
+	- Unable to open GUI because Mac doesn't like when you try to open stuff like that in an ssh
+		Put report in txt file 'nsys stats report1.nsys-rep > explicitCudaReport.txt'
+		Sometimes need to add '-force-export=true' arg
+- 'cudaMalloc' took 98.4% of total time (279,715,106 ns)
+- For kernel time:
+	'matrix\_mult' took 77.4% of time (745,747 ns)
+	'stencil\_2d' took 22.6% of time (217,820 ns)
+
+#MANAGED MEMORY
+- Compiled with 'nvcc managedCudaMatrixOps.cu -o managedCudaMatrixOps'
+- Ran with './managedCudaMatrixOps'
+- Successful output:
+	'''
+	Stencil Success!
+	Stencil Success!
+	Matrix Multiplication Success!
+	'''
+- Run nsys profiler 'nsys profile --stats=true ./managedCudaMatrixOps'
+	- Put report in txt file 'nsys stats report2.nsys-rep > managedCudaReport.txt'
+- 'cudaMallocManaged' took 96.6% of total time (268,604,597 ns)
+- Kernel time:
+	'stencil_2d' took 76.8% of time (5,637,211 ns)
+	'matrix_mult' took 23.2% of time (1,701,186 ns)
+
+## Optimizing performance in CUDA
+- Implemented non-default stream by doing the stenciling in 2 seperate streams and then merging those streams back together before doing the matrix multiplication.
+- Implemented shared memory
+	- In stencil, put 'BLOCK\_SIZE+2\*RADIUS' elements in shared memory
+	- In matrix multiplication, put square tiles of size 'BLOCK\_SIZE' into shared memory
+- Compile with 'nvcc optimizedCudaMatrixOps.cu -o optimizedCudaMatrixOps'
+- Run with './optimizedCudaMatrixOps'
+- Successful output:
+	'''
+	Stencil Success!
+	Stencil Success!
+	Matrix Multiplication Success!
+	'''
+- Run nsys profiler 'nsys profile --stats=true ./optimizedCudaMatrixOps'
+	- Put report in txt file 'nsys stats report3.nsys-rep > optimizedCudaReport.txt'
+- 'cudaStreamCreate' took 96.5% of total time (254,999,751 ns)
+- Kernal time:
+	'stencil_2d' took 66.8% of time (4,015,963 ns)
+	'matrix_mult' took 33.2% of time (1,995,581 ns)
+
+## Making use of Alpaka
+- Re-write your application making use of the Alpaka portability library.
+- Describe the steps you had to follow to re-write your code.
+
+
+### Some things to remember :
+- Include instructions on how you set-up the environment, compile and execute your C++/ CUDA/ Alpaka application.
+- Save the output of the profiler for the results you will report in your project (in csv, txt or any other format you prefer).
