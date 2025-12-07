@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+ <rdmgr>
+  <timestamp type="u64_t">1765132020</timestamp>
+  <hostname type="string">g38n04.hep.wisc.edu</hostname>
+  <os type="string">linux</os>
+  <product type="string">Intel® VTune™ Profiler 2025.7.0</product>
+  <buildNumber type="s32_t">631030</buildNumber>
+  <logicalCPUCount type="s32_t">96</logicalCPUCount>
+  <physicalCoreCount type="s32_t">48</physicalCoreCount>
+  <processorPackageCount type="s32_t">2</processorPackageCount>
+  <CPUFrequency type="s64_t">2300000000</CPUFrequency>
+  <CPUFamily type="s32_t">23</CPUFamily>
+  <CPUModel type="s32_t">49</CPUModel>
+  <CPUStepping type="s32_t">0</CPUStepping>
+  <CPUBrandName type="string">AMD EPYC 7352 24-Core Processor</CPUBrandName>
+  <isa type="string">avx2</isa>
+  <collectionTimeBegin type="u64_t">1765132021</collectionTimeBegin>
+  <collectionTimeEnd type="u64_t">1765132022</collectionTimeEnd>
+  <variables>
+   <at type="string">hs</at>
+  </variables>
+ </rdmgr>
+</root>
