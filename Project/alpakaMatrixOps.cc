@@ -14,18 +14,6 @@ using namespace std;
 #define B_val 2
 #define DSIZE (N+2*RADIUS)
 
-//-----------------ERROR CHECKING-----------------
-#define cudaCheckErrors(msg)                                   \
-   do {                                                        \
-       cudaError_t __err = cudaGetLastError();                 \
-       if (__err != cudaSuccess) {                             \
-           fprintf(stderr, "Fatal error: %s (%s at %s:%d)\n",  \
-                   msg, cudaGetErrorString(__err),             \
-                   __FILE__, __LINE__);                        \
-           fprintf(stderr, "*** FAILED - ABORTING\n");         \
-           exit(1);                                            \
-       }                                                       \
-   } while (0)
 
 //--------------MATRIX MULTIPLICATION--------------
 struct matrix_mult{
@@ -34,7 +22,7 @@ struct matrix_mult{
                                   T const* __restrict__ A,
                                   T const* __restrict__ B,
                                   T* __restrict__ C,
-                                  Vec2D size) const {	
+								  Vec2D size) const {	
 			auto globalThreadIdx = getIdx<Grid, Threads>(acc);
 			int threadIdxX = globalThreadIdx[0];
 			int threadIdxY = globalThreadIdx[1];
@@ -48,12 +36,12 @@ struct matrix_mult{
 			int idx = blockIdX * blockdimX + threadIdxX;
 			int idy = blockIdY * blockdimY + threadIdxY;
 			
-			if ((idx < size) && (idy < size)) {
+			if ((idx < size[1]) && (idy < size[1])) {
 				float tempSum = 0;
-				for (int i = 0; i < size; i++){
-				tempSum += A[idy*size + i]*B[i*size + idx];
+				for (int i = 0; i < size[1]; i++){
+				tempSum += A[idy*size[1] + i]*B[i*size[1] + idx];
 				}
-				C[idy*size+idx] = tempSum;	
+				C[idy*size[1]+idx] = tempSum;	
 			}
 	}
 };
@@ -84,14 +72,14 @@ struct stencil_2d{
 			// Read inputs into shared memory
 			temp[lindex_x][lindex_y] = in[gindex_x*DSIZE + gindex_y];
 
-			if (threadIdx.x < RADIUS) {
-				temp[lindex_x - RADIUS][lindex_y] = in[(gindex_x - RADIUS)*size + gindex_y];
-				temp[lindex_x + BLOCK_SIZE][lindex_y] = in[(gindex_x + BLOCK_SIZE)*size + gindex_y];
+			if (threadIdxX < RADIUS) {
+				temp[lindex_x - RADIUS][lindex_y] = in[(gindex_x - RADIUS)*size[1] + gindex_y];
+				temp[lindex_x + BLOCK_SIZE][lindex_y] = in[(gindex_x + BLOCK_SIZE)*size[1] + gindex_y];
 			}
 
-			if (threadIdx.y < RADIUS ) {
-				temp[lindex_x][lindex_y - RADIUS] = in[gindex_x*size + (gindex_y - RADIUS)];
-				temp[lindex_x][lindex_y + BLOCK_SIZE] = in[gindex_x*size + (gindex_y + BLOCK_SIZE)];
+			if (threadIdxY < RADIUS ) {
+				temp[lindex_x][lindex_y - RADIUS] = in[gindex_x*size[1] + (gindex_y - RADIUS)];
+				temp[lindex_x][lindex_y + BLOCK_SIZE] = in[gindex_x*size[1] + (gindex_y + BLOCK_SIZE)];
 			}
 
 			syncBlockThreads(acc);
@@ -106,7 +94,7 @@ struct stencil_2d{
 			result -= temp[lindex_x][lindex_y];
 			
 			// Store the result
-			out[gindex_x*size + gindex_y] = result;
+			out[gindex_x*size[1] + gindex_y] = result;
 	}
 };
 
@@ -135,7 +123,7 @@ int stencil_error_check(const int *out, int value){
 			}
 		}
 	}
-	printf("Stencil success!")
+	printf("Stencil success!");
     return 0;
 }
 
@@ -143,7 +131,6 @@ int stencil_error_check(const int *out, int value){
 int mult_error_check(const int *A, const int *B, const int *C){
 	int A_stenc_val = A_val + A_val*4*RADIUS;
 	int B_stenc_val = B_val + B_val*4*RADIUS;
-	int DSIZE = N + 2*RADIUS;
 	for (int i = 0; i < N + 2 * RADIUS; ++i) {
 		for (int j = 0; j < N + 2 * RADIUS; ++j) {
 			if ((i < RADIUS || i >= N + RADIUS) && (j < RADIUS || j >= N + RADIUS)){
@@ -172,88 +159,84 @@ int mult_error_check(const int *A, const int *B, const int *C){
 			}
 		}
 	}
-	printf("Matrix Multplication Success!")
+	printf("Matrix Multplication Success!");
 	return 0;
 }
 
-void fill_ints(int *x, int size, int n) {
-   // Store the result
-   // https://en.cppreference.com/w/cpp/algorithm/fill_n
-   fill_n(x, size, n);
-}
 
 int main(void){
+	Platform platform;
 
 	//require at least one device
-    std::size_t n = getDevCount<Platform>();
+    std::size_t n = alpaka::getDevCount<Platform>();
     if (n==0) {
         exit(EXIT_FAILURE);
     }
 
 	// use the single host device
   	HostPlatform host_platform;
-  	Host host = getDevByIdx(host_platform, 0u);
-  	std::cout << "Host:   " << getName(host) << '\n';
+  	Host host = alpaka::getDevByIdx(host_platform, 0u);
+  	std::cout << "Host:   " << alpaka::getName(host) << '\n';
 
   	// use the first device
-  	Device device = getDevByIdx(platform, 0u);
-  	std::cout << "Device: " << getName(device) << '\n';	
+  	Device device = alpaka::getDevByIdx(platform, 0u);
+  	std::cout << "Device: " << alpaka::getName(device) << '\n';	
 
 	// 2D and linearized buffer size
     constexpr Vec2D ndsize = {DSIZE,DSIZE};
     constexpr size_t size = ndsize.prod();
 
 	// allocate input and output host buffers
-    auto h_a = allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
-    auto h_stenciled_a = allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
-    auto h_b = allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
-    auto h_stenciled_b = allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
-    auto h_c = allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
+    auto h_a = alpaka::allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
+    auto h_stenciled_a = alpaka::allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
+    auto h_b = alpaka::allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
+    auto h_stenciled_b = alpaka::allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
+    auto h_c = alpaka::allocMappedBuf<Platform, int, uint32_t>(host, Vec1D{size});
 
 	// fill input buffers
-	for (size_t i = 0; i < m_size; i++) {
-        in_A_h[i] = A_val;
-        out_A_h[i] = A_val;
-        in_B_h[i] = B_val;
-        out_B_h[i] = B_val;
-        C_h[i] = 0;
+	for (size_t i = 0; i < size; i++) {
+        h_a[i] = A_val;
+        h_stenciled_a[i] = A_val;
+        h_b[i] = B_val;
+        h_stenciled_b[i] = B_val;
+        h_c[i] = 0;
     }
 	
 	// create queue and allocate buffers on device
 	auto queue = Queue{device};
-	auto h_a = allocAsyncBuf<int, uint32_t>(queue, Vec1D{m_size});
-	auto h_stenciled_a = allocAsyncBuf<int, uint32_t>(queue, Vec1D{m_size});
-	auto h_b = allocAsyncBuf<int, uint32_t>(queue, Vec1D{m_size});
-	auto h_stenciled_b = allocAsyncBuf<int, uint32_t>(queue, Vec1D{m_size});
-	auto h_c = allocAsyncBuf<int, uint32_t>(queue, Vec1D{m_size});
+	auto d_a = alpaka::allocAsyncBuf<int, uint32_t>(queue, Vec1D{size});
+	auto d_stenciled_a = alpaka::allocAsyncBuf<int, uint32_t>(queue, Vec1D{size});
+	auto d_b = alpaka::allocAsyncBuf<int, uint32_t>(queue, Vec1D{size});
+	auto d_stenciled_b = alpaka::allocAsyncBuf<int, uint32_t>(queue, Vec1D{size});
+	auto d_c = alpaka::allocAsyncBuf<int, uint32_t>(queue, Vec1D{size});
 
 	// copy to device
-	memcpy(queue, d_a, h_a);
-	memcpy(queue, d_stenciled_a, h_stenciled_a);
-	memcpy(queue, d_b, h_b);
-	memcpy(queue, d_stenciled_b, h_stenciled_b);
+	alpaka::memcpy(queue, d_a, h_a);
+	alpaka::memcpy(queue, d_stenciled_a, h_stenciled_a);
+	alpaka::memcpy(queue, d_b, h_b);
+	alpaka::memcpy(queue, d_stenciled_b, h_stenciled_b);
 
 	// fill the output buffer with zeros; the size is known from the buffer objects
-	memset(queue, d_c, 0x00);	
+	alpaka::memset(queue, d_c, 0x00);	
 
 	// launch kernels
 	int gridsize = (DSIZE + BLOCK_SIZE-1)/BLOCK_SIZE;
 	auto div = makeWorkDiv<Acc2D>({gridsize, gridsize}, {BLOCK_SIZE, BLOCK_SIZE});
 	std::cout << "Testing stencil_2d and matrix_mult kernels with vector indices with a grid of "
-		<< getWorkDiv<Grid, Blocks>(div) << " blocks x "
-		<< getWorkDiv<Block, Threads>(div) << " threads x "
-		<< getWorkDiv<Thread, Elems>(div) << " elements...\n";
-	exec<Acc2D>(queue, div, stencil_2d{}, d_a.data(), d_stenciled_a.data(), ndsize);
-	exec<Acc2D>(queue, div, stencil_2d{}, d_b.data(), d_stenciled_b.data(), ndsize);
-	exec<Acc2D>(queue, div, matrix_mult{}, d_stenciled_a.data(), d_stenciled_b.data(), d_c.data(), ndsize);
+		<< alpaka::getWorkDiv<Grid, alpaka::Blocks>(div) << " blocks x "
+		<< alpaka::getWorkDiv<Block, alpaka::Threads>(div) << " threads x "
+		<< alpaka::getWorkDiv<Thread, alpaka::Elems>(div) << " elements...\n";
+	alpaka::exec<Acc2D>(queue, div, stencil_2d{}, d_a.data(), d_stenciled_a.data(), ndsize);
+	alpaka::exec<Acc2D>(queue, div, stencil_2d{}, d_b.data(), d_stenciled_b.data(), ndsize);
+	alpaka::exec<Acc2D>(queue, div, matrix_mult{}, d_stenciled_a.data(), d_stenciled_b.data(), d_c.data(), ndsize);
 
 	// copy results back to host
-	memcpy(queue, h_c, d_c);
-	memcpy(queue, h_stenciled_a, d_stenciled_a);
-	memcpy(queue, h_stenciled_b, d_stenciled_b);
+	alpaka::memcpy(queue, h_c, d_c);
+	alpaka::memcpy(queue, h_stenciled_a, d_stenciled_a);
+	alpaka::memcpy(queue, h_stenciled_b, d_stenciled_b);
 
 	// wait for all operations to complete
-	wait(queue);
+	alpaka::wait(queue);
 
 	// check the results
 	stencil_error_check(h_stenciled_a, A_val);

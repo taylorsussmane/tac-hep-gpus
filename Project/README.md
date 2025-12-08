@@ -1,33 +1,112 @@
 # **Final Project**
 
-### Goal of the final project is to combine most of the knowledge you have gained over the past weeks. You will build your code based on many things you have already implemented in previous exercises:
-
 ## C++ and CPU profiling 
-- Start by writing a code in C++ that :
-  - Creates two 2-dimensional square matrices A and B of size DSIZE >= 512 and fill them in with arbitrary integer values.
-  - Performs a 2-d stencil operation on each matrix. You can use any radius size, but keep it > 2.
-  - Performs a matrix multiplication of the matrices after the stencil application
-  - Make sure that you also add utility functions to check your results. 
-- Profile your C++ code using the VTune profiler and identify the compute intensive parts.
+- Compiled with `g++ cppMatrixOps.cpp -o cppMatrixOps`
+- Vtune commands:
+	1. `source /opt/intel/oneapi/setvars.sh`
+	2. `vtune -collect hotspots -quiet ./cppMatrixOps`
+	3. `vtune -report summary -result-dir r000hs -format csv -report-output summary.csv`
+	4. `vtune -report hotspots -result-dir r000hs -format csv -report-output hotspots.csv`
+- `matrix\_mult` command is most compute intensive, taking up 94.4% of compute time
+- `stencil\_2d` command is 2nd most compute intensive, taking up 5.6% of compute time
+- Successful output:
+```
+Stencil Success!
+Matrix Multiplication Success!
+```
 
 ## Porting to CUDA
-- Write the same application in CUDA: 
-  - You should write a CUDA kernel that performs the stencil operation and one for the matrix multiplication.
-  - Initially make use of explicit memory copies from host to devise and vise-versa and make use only of the default CUDA stream.
-  - Make sure to add utility functions for error checking and for verifying your results.
-- Profile your code using nsys and document/comment on the time spent in each CUDA API call. Also, make note on the time spent on host and device.
-- Try switching from explicit memory copies to managed memory. 
-   - Profile again using either nsys on ncu and comment on the performance of your application. 
+- First, `ssh g38nXX # XX:01-16`
+
+### EXPLICIT MEMORY COPIES
+- Compiled with `nvcc explicitCudaMatrixOps.cu -o explicitCudaMatrixOps`
+- Run with `./explicitCudaMatrixOps`
+- Successful output: 
+```
+Stencil Success!
+Stencil Success!
+Matrix Multiplication Success!
+```
+- Run nsys profiler `nsys profile --stats=true ./explicitCudaMatrixOps`
+	- Unable to open GUI because Mac doesn't like when you try to open stuff like that in an ssh
+		Put report in txt file `nsys stats report1.nsys-rep > explicitCudaReport.txt`
+		Sometimes need to add `-force-export=true` arg
+- `cudaMalloc` took 98.4% of total time (279,715,106 ns)
+- For kernel time:
+  `matrix\_mult` took 77.4% of time (745,747 ns)
+  `stencil\_2d` took 22.6% of time (217,820 ns)
+
+### MANAGED MEMORY
+- Compiled with `nvcc managedCudaMatrixOps.cu -o managedCudaMatrixOps`
+- Ran with `./managedCudaMatrixOps`
+- Successful output:
+```
+Stencil Success!
+Stencil Success!
+Matrix Multiplication Success!
+```
+- Run nsys profiler `nsys profile --stats=true ./managedCudaMatrixOps`
+	- Put report in txt file `nsys stats report2.nsys-rep > managedCudaReport.txt`
+- `cudaMallocManaged` took 96.6% of total time (268,604,597 ns)
+- Kernel time:
+  `stencil_2d` took 76.8% of time (5,637,211 ns)
+  `matrix_mult` took 23.2% of time (1,701,186 ns)
+- Memory allocation took less time than with the explicit memory copies, but the kernels took longer to run.
 
 ## Optimizing performance in CUDA
-- Optimize the performance of your code making use of non-default CUDA streams and shared memory. 
-- Once you have decided on the best approach, profile your application and compare the time spent in each API call and the overall timing of your application with your initial CUDA implementation.
+- Implemented non-default stream by doing the stenciling in 2 seperate streams and then merging those streams back together before doing the matrix multiplication.
+- Implemented shared memory
+	- In stencil, put `BLOCK\_SIZE+2\*RADIUS` elements in shared memory
+	- In matrix multiplication, put square tiles of size `BLOCK\_SIZE` into shared memory
+- Compile with `nvcc optimizedCudaMatrixOps.cu -o optimizedCudaMatrixOps`
+- Run with `./optimizedCudaMatrixOps`
+- Successful output:
+```
+Stencil Success!
+Stencil Success!
+Matrix Multiplication Success!
+```
+- Run nsys profiler `nsys profile --stats=true ./optimizedCudaMatrixOps`
+	- Put report in txt file `nsys stats report3.nsys-rep > optimizedCudaReport.txt`
+- `cudaStreamCreate` took 96.5% of total time (254,999,751 ns)
+- Kernal time:
+  `stencil_2d` took 66.8% of time (4,015,963 ns)
+  `matrix_mult` took 33.2% of time (1,995,581 ns)
+- Creating the stream took less time than either of the memory allocations from before. Stencil kernel took less time than the managed memory stencil kernel, but the matrix multiplication took slightly longer than the managed memory matrix multiplication kernel.
+- Perhaps the way to get the most efficient code would be to use explicit memory copies with non-default streams. For the kernels, implement shared memory for the stencil, but not the matrix multiplication operation. 
 
 ## Making use of Alpaka
-- Re-write your application making use of the Alpaka portability library.
-- Describe the steps you had to follow to re-write your code.
-
-
-### Some things to remember :
-- Include instructions on how you set-up the environment, compile and execute your C++/ CUDA/ Alpaka application.
-- Save the output of the profiler for the results you will report in your project (in csv, txt or any other format you prefer).
+- Set up:
+	- `git clone https://github.com/alpaka-group/alpaka.git -b 2.0.0 ${HOME}/public/alpaka`
+	- `git clone https://github.com/kokkos/mdspan.git ${HOME}/public/mdspan`
+	- `git -C ${HOME}/public/mdspan checkout 973ef6415a6396e5f0a55cb4c99afd1d1d541681`
+	- `git clone https://github.com/fwyzard/intro\_to\_alpaka.git -b tachep2025`
+	- `cd intro\_to\_alpaka/alpaka/`
+	- `make`
+	- Write alpaka code in `intro\_to\_alpaka/alpaka/` directory
+	- To compile on CPU: `g++ -std=c++20 -O2 -g -I$ALPAKA_BASE/include -DALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED alpakaMatrixOps.cc -o alpakaMatrixOps`
+	- To compile on GPU: `nvcc -x cu -std=c++20 -O2 -g --expt-relaxed-constexpr -I$ALPAKA_BASE/include -DALPAKA_ACC_GPU_CUDA_ENABLED alpakaMatrixOps.cc -o cuda_alpakaMatrixOps`
+- Based on results of profiling the cuda code, I decided to use the standard `matrix\_mult` function and the shared memory `stencil\_2d` function
+- Syntax of the kernels now starts with:
+```
+struct funct {
+template <typename TAcc, typename T>
+ALPAKA\_FN\_ACC void operator()(TAcc const& acc,  
+				  T const\* __restrict__ in,  
+				  T \* __restrict__ out,  
+				 )const{  
+	auto globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
+	int threadIdxX = globalThreadIdx[0];
+	int threadIdxY = globalThreadIdx[1];
+	auto blocksize = alpaka::getWorkDiv<alpaka::Block, alpaka::Threads>(acc);
+	int blockdimX = blocksize[0];
+	int blockdimY = blocksize[1];
+	auto blockId = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc);
+	int blockIdX = blockId[0];
+	int blockIdY = blockId[1];	
+}  
+};
+```
+- To adapt the code, the arrays had to made into buffers. The other changes were rather minor, just doing the same thing as in the cuda code, but changing the syntax to match the Alpaka syntax.
+- Unfortunately, I was unable to get this code to compile. 
+	- Compilation errors complained about the references to `Queue` and `Platform` being ambiguous. 
