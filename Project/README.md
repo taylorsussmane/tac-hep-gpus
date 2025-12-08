@@ -108,5 +108,4 @@ ALPAKA\_FN\_ACC void operator()(TAcc const& acc,
 };
 ```
 - To adapt the code, the arrays had to made into buffers. The other changes were rather minor, just doing the same thing as in the cuda code, but changing the syntax to match the Alpaka syntax.
-- Unfortunately, I was unable to get this code to compile. 
-	- Compilation errors complained about the references to `Queue` and `Platform` being ambiguous. 
+- Unfortunately, this code only compiles on the CPU, and it does not pass the checks. 
