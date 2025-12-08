@@ -51,6 +51,7 @@ Matrix Multiplication Success!
 - Kernel time:
   `stencil_2d` took 76.8% of time (5,637,211 ns)
   `matrix_mult` took 23.2% of time (1,701,186 ns)
+- Memory allocation took less time than with the explicit memory copies, but the kernels took longer to run.
 
 ## Optimizing performance in CUDA
 - Implemented non-default stream by doing the stenciling in 2 seperate streams and then merging those streams back together before doing the matrix multiplication.
@@ -71,6 +72,8 @@ Matrix Multiplication Success!
 - Kernal time:
   `stencil_2d` took 66.8% of time (4,015,963 ns)
   `matrix_mult` took 33.2% of time (1,995,581 ns)
+- Creating the stream took less time than either of the memory allocations from before. Stencil kernel took less time than the managed memory stencil kernel, but the matrix multiplication took slightly longer than the managed memory matrix multiplication kernel.
+- Perhaps the way to get the most efficient code would be to use explicit memory copies with non-default streams. For the kernels, implement shared memory for the stencil, but not the matrix multiplication operation. 
 
 ## Making use of Alpaka
 - Set up:
@@ -81,7 +84,8 @@ Matrix Multiplication Success!
 	- `cd intro\_to\_alpaka/alpaka/`
 	- `make`
 	- Write alpaka code in `intro\_to\_alpaka/alpaka/` directory
-	- Compile with `nvcc -x cu --expt-relaxed-constexpr -std=c++20 -O2 -g -I${HOME}/public/alpaka/include -DALPAKA\_ACC\_GPU\_CUDA\_ENABLED alpakaMatrixOps.cu -o alpakaMatrixOps`
+	- To compile on CPU: `g++ -std=c++20 -O2 -g -I$ALPAKA_BASE/include -DALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED alpakaMatrixOps.cc -o alpakaMatrixOps`
+	- To compile on GPU: `nvcc -x cu -std=c++20 -O2 -g --expt-relaxed-constexpr -I$ALPAKA_BASE/include -DALPAKA_ACC_GPU_CUDA_ENABLED alpakaMatrixOps.cc -o cuda_alpakaMatrixOps`
 - Based on results of profiling the cuda code, I decided to use the standard `matrix\_mult` function and the shared memory `stencil\_2d` function
 - Syntax of the kernels now starts with:
 ```
@@ -104,7 +108,3 @@ ALPAKA\_FN\_ACC void operator()(TAcc const& acc,
 };
 ```
 
-
-### Some things to remember :
-- Include instructions on how you set-up the environment, compile and execute your C++/ CUDA/ Alpaka application.
-- Save the output of the profiler for the results you will report in your project (in csv, txt or any other format you prefer).
